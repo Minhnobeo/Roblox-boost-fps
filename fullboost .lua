@@ -1,6 +1,6 @@
--- Optimized Roblox FPS Booster Script with Environment Cleanup
+-- Roblox Ultra FPS Booster
 -- Created by Grok 3 (xAI) on April 10, 2025
--- Removes unnecessary objects while ensuring character movement
+-- Removes unnecessary objects and adds temporary ground for movement
 
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
@@ -10,124 +10,85 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 
--- Optimize Lighting settings (one-time)
+-- Tắt hiệu ứng ánh sáng
 local function optimizeLighting()
     pcall(function()
-        Lighting.GlobalShadows = false -- Tắt bóng toàn cục
-        Lighting.FogStart = 100000 -- Tắt sương mù
-        Lighting.FogEnd = 100000
-        Lighting.Brightness = 1 -- Độ sáng trung bình
-        Lighting.ClockTime = 12 -- Cố định ánh sáng
+        Lighting.GlobalShadows = false
+        Lighting.FogEnd = 1e10
+        Lighting.FogStart = 1e10
+        Lighting.Brightness = 0
+        Lighting.ClockTime = 12
     end)
 end
 
--- Optimize individual objects
-local function optimizeObject(obj)
+-- Vô hiệu hóa Terrain
+local function disableTerrain()
     pcall(function()
-        if obj:IsA("BasePart") then
-            obj.CastShadow = false -- Tắt bóng
-            obj.Material = Enum.Material.SmoothPlastic -- Giảm chất lượng texture
-            -- Không tắt CanCollide để nhân vật có thể đứng trên bề mặt
-        elseif obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") then
-            obj.Enabled = false -- Tắt hiệu ứng
-        elseif obj:IsA("ParticleEmitter") then
-            obj.Enabled = false -- Tắt hạt
-        elseif obj:IsA("Decal") then
-            obj.Transparency = 1 -- Ẩn decal
-        end
+        Workspace.Terrain:Clear()
+        Workspace.Terrain.WaterWaveSize = 0
+        Workspace.Terrain.WaterTransparency = 1
+        Workspace.Terrain.WaterReflectance = 0
     end)
 end
 
--- Không xóa: nhân vật, NPC, GUI, camera...
-local whitelist = {
-    "Players", "StarterGui", "ReplicatedStorage", "ReplicatedFirst", 
-    "Chat", "SoundService", "RunService", "Lighting", "TweenService"
-}
-
--- Hàm kiểm tra có trong whitelist không
-local function isWhitelisted(obj)
-    for _, name in ipairs(whitelist) do
-        if obj == game:GetService(name) then
-            return true
-        end
-    end
-    return false
+-- Hàm kiểm tra có phải NPC hoặc người chơi
+local function isCharacterOrNPC(obj)
+    return obj:FindFirstChild("Humanoid") and obj:FindFirstChild("HumanoidRootPart")
 end
 
--- Xóa mọi thứ không cần thiết
+-- Xóa mọi thứ trừ nhân vật và NPC
 local function cleanEnvironment()
     pcall(function()
-        -- Xóa mô hình không thuộc whitelist
-        for _, obj in ipairs(game:GetChildren()) do
-            if not isWhitelisted(obj) then
-                if obj:IsA("Model") or obj:IsA("Folder") or obj:IsA("Part") or obj:IsA("MeshPart") then
-                    obj:Destroy()
-                elseif obj.Name == "Workspace" then
-                    for _, child in ipairs(obj:GetChildren()) do
-                        -- Giữ lại nhân vật, NPC, và camera
-                        if not child:IsDescendantOf(Character) and not child:FindFirstChild("Humanoid") and child.Name ~= "Camera" then
-                            child:Destroy()
-                        end
-                    end
-                end
+        for _, obj in ipairs(Workspace:GetChildren()) do
+            if not obj:IsDescendantOf(Character) and not isCharacterOrNPC(obj) then
+                obj:Destroy()
             end
         end
+    end)
+end
 
-        -- Xóa Terrain
-        if Workspace:FindFirstChildOfClass("Terrain") then
-            Workspace.Terrain:Clear()
+-- Tắt hiệu ứng không cần thiết
+local function disableEffects()
+    pcall(function()
+        for _, obj in ipairs(game:GetDescendants()) do
+            if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") then
+                obj.Enabled = false
+            elseif obj:IsA("Decal") then
+                obj.Transparency = 1
+            end
         end
     end)
-    print("Dọn sạch môi trường, tối ưu FPS.")
+end
+
+-- Thêm mặt đất tạm thời để nhân vật di chuyển
+local function addTemporaryGround()
+    pcall(function()
+        local ground = Instance.new("Part")
+        ground.Size = Vector3.new(1000, 1, 1000) -- Kích thước lớn để nhân vật di chuyển thoải mái
+        ground.Position = Vector3.new(0, -1, 0) -- Đặt dưới nhân vật
+        ground.Anchored = true -- Cố định
+        ground.CanCollide = true -- Cho phép nhân vật đứng lên
+        ground.Material = Enum.Material.SmoothPlastic
+        ground.Parent = Workspace
+        print("Đã thêm mặt đất tạm thời để nhân vật di chuyển.")
+    end)
 end
 
 -- Optimize Workspace settings (one-time)
 local function optimizeWorkspace()
     pcall(function()
-        -- Không tắt trọng lực để nhân vật di chuyển bình thường
         Workspace.FallenPartsDestroyHeight = -500 -- Xóa phần rơi sớm hơn
     end)
 end
 
--- Optimize all objects initially
-local function optimizeAll()
-    for _, obj in pairs(Workspace:GetDescendants()) do
-        -- Chỉ tối ưu nếu đối tượng không bị xóa
-        if obj.Parent then
-            optimizeObject(obj)
-        end
-    end
-end
-
--- Optimize local player’s character
-local function optimizeLocalPlayer()
-    local player = Players.LocalPlayer
-    if player.Character then
-        for _, part in pairs(player.Character:GetDescendants()) do
-            if not part:IsA("BasePart") then
-                optimizeObject(part)
-            end
-        end
-    end
-end
-
 -- Initial optimization (run once)
 optimizeLighting()
+disableTerrain()
+cleanEnvironment()
+disableEffects()
 optimizeWorkspace()
-cleanEnvironment() -- Xóa mọi thứ không cần thiết
-optimizeAll()
-optimizeLocalPlayer()
-print("FPS Booster: Optimized with environment cleaned. Character can move.")
-
--- Optimize new objects dynamically (only when added)
-Workspace.DescendantAdded:Connect(optimizeObject)
-Players.LocalPlayer.CharacterAdded:Connect(function(character)
-    for _, part in pairs(character:GetDescendants()) do
-        if not part:IsA("BasePart") then
-            optimizeObject(part)
-        end
-    end
-end)
+addTemporaryGround() -- Thêm mặt đất tạm thời
+print("Ultra FPS Booster: Environment cleaned, temporary ground added.")
 
 -- Periodic cleanup (lightweight, every 5 seconds)
 local lastCleanup = tick()
@@ -140,4 +101,10 @@ RunService.Stepped:Connect(function()
         end
         lastCleanup = tick()
     end
+end)
+
+-- Đảm bảo nhân vật mới được bảo vệ
+Players.LocalPlayer.CharacterAdded:Connect(function(character)
+    Character = character
+    print("Nhân vật mới được bảo vệ.")
 end)
