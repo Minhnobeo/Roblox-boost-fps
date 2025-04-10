@@ -1,6 +1,6 @@
--- Roblox Ultra FPS Booster with Character Accessories/Clothing Removal
+-- Roblox Ultra FPS Booster (Fixed to Prevent Game Freeze)
 -- Created by Grok 3 (xAI) on April 10, 2025
--- Removes unnecessary objects, character accessories, and clothing
+-- Removes unnecessary objects safely while preserving movement surfaces
 
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
@@ -36,49 +36,42 @@ local function isCharacterOrNPC(obj)
     return obj:FindFirstChild("Humanoid") and obj:FindFirstChild("HumanoidRootPart")
 end
 
--- Xóa các hiệu ứng ánh sáng, particle, mesh, decal không cần thiết
+-- Xóa các hiệu ứng ánh sáng, particle, mesh, decal không cần thiết (an toàn hơn)
 local function removeEffectsAndMeshes()
     pcall(function()
+        local objectsToRemove = {}
         for _, obj in pairs(game:GetDescendants()) do
+            -- Bỏ qua nếu đối tượng thuộc nhân vật hoặc NPC
+            if obj:IsDescendantOf(Character) or isCharacterOrNPC(obj) then
+                continue
+            end
             if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") or obj:IsA("Fire") or obj:IsA("Smoke") then
-                obj:Destroy()
+                table.insert(objectsToRemove, obj)
+            elseif obj:IsA("Decal") or obj:IsA("Texture") or obj:IsA("ShirtGraphic") then
+                table.insert(objectsToRemove, obj)
+            elseif obj:IsA("SpecialMesh") or obj:IsA("MeshPart") then
+                table.insert(objectsToRemove, obj)
             end
-            if obj:IsA("Decal") or obj:IsA("Texture") or obj:IsA("ShirtGraphic") then
-                obj:Destroy()
-            end
-            if obj:IsA("SpecialMesh") or obj:IsA("MeshPart") then
-                obj:Destroy()
-            end
+        end
+
+        -- Xóa dần để tránh đứng game
+        for _, obj in ipairs(objectsToRemove) do
+            task.defer(function()
+                pcall(function()
+                    if obj and obj.Parent then
+                        obj:Destroy()
+                    end
+                end)
+            end)
+            task.wait() -- Đợi một chút giữa các lần xóa
         end
     end)
 end
 
--- Xóa tóc và quần áo của nhân vật/NPC
-local function removeCharacterAccessoriesAndClothing()
-    pcall(function()
-        -- Lặp qua tất cả nhân vật và NPC trong Workspace
-        for _, obj in pairs(Workspace:GetDescendants()) do
-            if isCharacterOrNPC(obj) then
-                -- Xóa tóc và phụ kiện (Accessories)
-                for _, accessory in pairs(obj:GetChildren()) do
-                    if accessory:IsA("Accessory") then -- Tóc, mũ, v.v.
-                        accessory:Destroy()
-                    end
-                end
-                -- Xóa quần áo (Shirt, Pants, CharacterMesh)
-                for _, clothing in pairs(obj:GetChildren()) do
-                    if clothing:IsA("Shirt") or clothing:IsA("Pants") or clothing:IsA("CharacterMesh") then
-                        clothing:Destroy()
-                    end
-                end
-            end
-        end
-    end)
-end
-
--- Xóa mọi thứ trừ nhân vật, NPC, và bề mặt nền
+-- Xóa mọi thứ trừ nhân vật, NPC, và bề mặt nền (an toàn hơn)
 local function cleanEnvironment()
     pcall(function()
+        local objectsToRemove = {}
         for _, part in pairs(Workspace:GetChildren()) do
             if part:IsA("Model") or part:IsA("BasePart") then
                 -- Nếu không phải nhân vật hoặc NPC thì xóa
@@ -97,12 +90,24 @@ local function cleanEnvironment()
                 end
 
                 -- Giữ nền: Terrain hoặc Baseplate hoặc vật thể có tên riêng bạn muốn giữ
-                local isGround = part:IsA("Terrain") or part.Name:lower():find("base") or part.Name:lower():find("ground")
+                local isGround = part:IsA("Terrain") or part.Name:lower():find("base") or part.Name:lower():find("ground") or part.Name:lower():find("road")
 
                 if not isPlayer and not isNPC and not isGround then
-                    part:Destroy()
+                    table.insert(objectsToRemove, part)
                 end
             end
+        end
+
+        -- Xóa dần để tránh đứng game
+        for _, obj in ipairs(objectsToRemove) do
+            task.defer(function()
+                pcall(function()
+                    if obj and obj.Parent then
+                        obj:Destroy()
+                    end
+                end)
+            end)
+            task.wait() -- Đợi một chút giữa các lần xóa
         end
     end)
 end
@@ -127,32 +132,21 @@ optimizeLighting()
 disableTerrain()
 cleanEnvironment()
 removeEffectsAndMeshes()
-removeCharacterAccessoriesAndClothing() -- Xóa tóc và quần áo
 optimizeWorkspace()
 optimizeRendering()
-print("Ultra FPS Booster: Tối ưu hoàn tất, tóc và quần áo đã bị xóa.")
+print("Ultra FPS Booster: Tối ưu hoàn tất (đã sửa lỗi đứng game).")
 
 -- Optimize new objects dynamically (only when added)
 Workspace.DescendantAdded:Connect(function(obj)
     if not obj:IsDescendantOf(Character) and not isCharacterOrNPC(obj) then
-        obj:Destroy()
+        task.defer(function()
+            pcall(function()
+                if obj and obj.Parent then
+                    obj:Destroy()
+                end
+            end)
+        end)
     end
-end)
-
--- Xóa tóc và quần áo của nhân vật mới được thêm vào
-Players.LocalPlayer.CharacterAdded:Connect(function(character)
-    pcall(function()
-        for _, accessory in pairs(character:GetChildren()) do
-            if accessory:IsA("Accessory") then
-                accessory:Destroy()
-            end
-        end
-        for _, clothing in pairs(character:GetChildren()) do
-            if clothing:IsA("Shirt") or clothing:IsA("Pants") or clothing:IsA("CharacterMesh") then
-                clothing:Destroy()
-            end
-        end
-    end)
 end)
 
 -- Periodic cleanup (lightweight, every 5 seconds)
@@ -161,7 +155,13 @@ RunService.Stepped:Connect(function()
     if tick() - lastCleanup >= 5 then -- Chỉ chạy mỗi 5 giây
         for _, debris in pairs(Workspace:GetChildren()) do
             if debris:IsA("Debris") then
-                debris:Destroy()
+                task.defer(function()
+                    pcall(function()
+                        if debris and debris.Parent then
+                            debris:Destroy()
+                        end
+                    end)
+                end)
             end
         end
         lastCleanup = tick()
