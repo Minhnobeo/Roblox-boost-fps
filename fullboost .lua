@@ -1,90 +1,122 @@
--- Full Auto FPS Boost Script by Minhnobeo + ChatGPT
-pcall(function()
+-- FullBoost.lua: Roblox FPS Optimization Script
+-- Created by MinhNobeo, enhanced by Grok 3 (xAI)
+-- Last updated: April 10, 2025
 
-    -- Clear Terrain
-    if workspace:FindFirstChildOfClass("Terrain") then
-        local terrain = workspace:FindFirstChildOfClass("Terrain")
-        terrain:Clear()
-        terrain.WaterWaveSize = 0
-        terrain.WaterWaveSpeed = 0
-        terrain.WaterReflectance = 0
-        terrain.WaterTransparency = 1
-    end
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
 
-    -- Lighting Settings
-    local lighting = game:GetService("Lighting")
-    lighting.GlobalShadows = false
-    lighting.FogEnd = 1e10
-    lighting.Brightness = 0
-    for _, v in pairs(lighting:GetChildren()) do
-        if v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("BloomEffect") or v:IsA("DepthOfFieldEffect") or v:IsA("ColorCorrectionEffect") then
-            v:Destroy()
+-- Configuration (Adjust these values as needed)
+local Config = {
+    DisableShadows = true,          -- Disable all shadows
+    DisableFog = true,             -- Remove fog effects
+    DisableEffects = true,         -- Disable smoke, fire, sparkles, etc.
+    ReduceTextures = true,         -- Simplify materials and textures
+    BrightnessLevel = 0.5,         -- Set custom brightness (0 to 1)
+    OptimizeInterval = 1,          -- Time (seconds) between optimization checks
+    DontOptimizeTag = "DontOptimize" -- Tag to skip optimization for specific objects
+}
+
+-- Store original settings for restoration
+local OriginalSettings = {
+    GlobalShadows = Lighting.GlobalShadows,
+    FogStart = Lighting.FogStart,
+    FogEnd = Lighting.FogEnd,
+    Brightness = Lighting.Brightness,
+    ShadowSoftness = Lighting.ShadowSoftness
+}
+
+-- Apply initial lighting optimizations
+local function applyLightingOptimizations()
+    local success, err = pcall(function()
+        if Config.DisableShadows then
+            Lighting.GlobalShadows = false
+            Lighting.ShadowSoftness = 0
         end
-    end
-
-    -- Settings
-    settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-
-    -- Remove effects from workspace
-    for _, v in pairs(workspace:GetDescendants()) do
-        if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") or v:IsA("Explosion") then
-            v:Destroy()
-        elseif v:IsA("Decal") or v:IsA("Texture") then
-            v:Destroy()
-        elseif v:IsA("Sound") then
-            v.Volume = 0
-        elseif v:IsA("BillboardGui") or v:IsA("SurfaceGui") or v:IsA("TextLabel") or v:IsA("ImageLabel") or v:IsA("TextButton") then
-            v:Destroy()
+        if Config.DisableFog then
+            Lighting.FogStart = 100000
+            Lighting.FogEnd = 100000
         end
+        Lighting.Brightness = Config.BrightnessLevel
+        Lighting.ClockTime = 12 -- Fixed time to avoid dynamic lighting changes
+    end)
+    if not success then
+        warn("Error applying lighting optimizations: " .. err)
+    end
+end
+
+-- Optimize individual objects
+local function optimizeObject(obj)
+    if CollectionService:HasTag(obj, Config.DontOptimizeTag) then
+        return -- Skip objects tagged with DontOptimize
     end
 
-    -- Remove GUI from Player
-    for _, player in pairs(game:GetService("Players"):GetPlayers()) do
-        if player:FindFirstChild("PlayerGui") then
-            for _, gui in pairs(player.PlayerGui:GetChildren()) do
-                gui:Destroy()
+    local success, err = pcall(function()
+        if obj:IsA("BasePart") then
+            if Config.DisableShadows then
+                obj.CastShadow = false
+            end
+            if Config.ReduceTextures then
+                obj.Material = Enum.Material.SmoothPlastic
+                obj.Reflectance = 0
+            end
+            obj.Anchored = true -- Anchor to reduce physics calculations
+            obj.CanCollide = false -- Disable collisions unless necessary
+        elseif Config.DisableEffects then
+            if obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") then
+                obj.Enabled = false
+            elseif obj:IsA("ParticleEmitter") then
+                obj.Rate = 0 -- Reduce particle emissions
+            elseif obj:IsA("Decal") and Config.ReduceTextures then
+                obj.Transparency = 1 -- Hide unnecessary decals
             end
         end
+    end)
+    if not success then
+        warn("Error optimizing object " .. obj.Name .. ": " .. err)
     end
+end
 
-    -- Camera Optimization
-    local camera = workspace.CurrentCamera
-    if camera then
-        camera.CameraType = Enum.CameraType.Custom
-        camera.FieldOfView = 70
+-- Optimize all existing objects
+local function optimizeAllObjects()
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        optimizeObject(obj)
     end
+end
 
-    -- Mute all
-    game:GetService("UserSettings"):GetService("UserGameSettings").MasterVolume = 0
-
-    -- Remove click detectors and touches
-    for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("ClickDetector") or obj:IsA("TouchTransmitter") then
-            obj:Destroy()
-        end
+-- Restore original settings (optional)
+local function restoreOriginalSettings()
+    local success, err = pcall(function()
+        Lighting.GlobalShadows = OriginalSettings.GlobalShadows
+        Lighting.FogStart = OriginalSettings.FogStart
+        Lighting.FogEnd = OriginalSettings.FogEnd
+        Lighting.Brightness = OriginalSettings.Brightness
+        Lighting.ShadowSoftness = OriginalSettings.ShadowSoftness
+    end)
+    if not success then
+        warn("Error restoring settings: " .. err)
+    else
+        print("FPS Boost: Original settings restored.")
     end
+end
 
-    print("[FPS BOOST] Đã tối ưu toàn bộ - FPS tăng tối đa!")
+-- Initial optimization
+applyLightingOptimizations()
+optimizeAllObjects()
+print("FPS Boost: Initial optimizations applied successfully.")
+
+-- Dynamic optimization for new objects
+Workspace.DescendantAdded:Connect(optimizeObject)
+
+-- Periodic optimization check using RunService (more efficient than while loop)
+local lastCheck = tick()
+RunService.Heartbeat:Connect(function()
+    if tick() - lastCheck >= Config.OptimizeInterval then
+        optimizeAllObjects() -- Re-optimize periodically
+        lastCheck = tick()
+    end
 end)
 
--- Tắt bóng của tất cả BasePart
-for _, obj in pairs(workspace:GetDescendants()) do
-    if obj:IsA("BasePart") then
-        obj.CastShadow = false
-    end
-end
-
--- Xoá Decal, Texture và SpecialMesh
-for _, obj in pairs(workspace:GetDescendants()) do
-    if obj:IsA("Decal") or obj:IsA("Texture") or obj:IsA("SpecialMesh") then
-        obj:Destroy()
-    end
-end
-
--- Giữ nguyên tốc độ nhân vật hoặc chỉnh nhẹ nếu cần
-for _, hum in pairs(workspace:GetDescendants()) do
-    if hum:IsA("Humanoid") then
-        hum.WalkSpeed = 16
-        hum.JumpPower = 50
-    end
-end
+-- Optional: Uncomment the line below to test restoration after 30 seconds
+-- task.delay(30, restoreOriginalSettings)
