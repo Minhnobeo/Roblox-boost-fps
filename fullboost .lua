@@ -1,22 +1,21 @@
--- Ultimate Roblox FPS Booster Script
+-- Optimized Roblox FPS Booster Script with Terrain, Houses, and Trees Removal
 -- Created by Grok 3 (xAI) on April 10, 2025
--- Runs continuously to maximize FPS, no restoration
+-- Designed to reduce lag without causing stuttering
 
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
+local Terrain = Workspace.Terrain
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 
--- Optimize Lighting settings
+-- Optimize Lighting settings (one-time)
 local function optimizeLighting()
     pcall(function()
         Lighting.GlobalShadows = false -- Tắt bóng toàn cục
-        Lighting.ShadowSoftness = 0 -- Giảm độ mềm của bóng
         Lighting.FogStart = 100000 -- Tắt sương mù
         Lighting.FogEnd = 100000
         Lighting.Brightness = 1 -- Độ sáng trung bình
-        Lighting.ClockTime = 12 -- Cố định ánh sáng để giảm tính toán
-        Lighting.Ambient = Color3.new(1, 1, 1) -- Giảm ánh sáng môi trường
+        Lighting.ClockTime = 12 -- Cố định ánh sáng
     end)
 end
 
@@ -26,32 +25,48 @@ local function optimizeObject(obj)
         if obj:IsA("BasePart") then
             obj.CastShadow = false -- Tắt bóng
             obj.Material = Enum.Material.SmoothPlastic -- Giảm chất lượng texture
-            obj.Reflectance = 0 -- Tắt phản chiếu
             obj.Anchored = true -- Cố định để giảm vật lý
             obj.CanCollide = false -- Tắt va chạm
         elseif obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") then
             obj.Enabled = false -- Tắt hiệu ứng
         elseif obj:IsA("ParticleEmitter") then
-            obj.Rate = 0 -- Tắt hạt
-            obj.Enabled = false
-        elseif obj:IsA("Explosion") then
-            obj.BlastPressure = 0 -- Giảm hiệu ứng nổ
-            obj.BlastRadius = 0
-        elseif obj:IsA("Decal") or obj:IsA("Texture") then
-            obj.Transparency = 1 -- Ẩn texture/decals
+            obj.Enabled = false -- Tắt hạt
+        elseif obj:IsA("Decal") then
+            obj.Transparency = 1 -- Ẩn decal
         end
     end)
 end
 
--- Optimize Workspace settings
-local function optimizeWorkspace()
+-- Remove terrain, houses, and trees
+local function removeTerrainHousesTrees()
     pcall(function()
-        Workspace.Gravity = 0 -- Tắt trọng lực
-        Workspace.FallenPartsDestroyHeight = 0 -- Xóa ngay phần rơi
+        -- Xóa địa hình (Terrain)
+        Terrain:Clear() -- Xóa toàn bộ địa hình (cỏ, đất, nước, v.v.)
+
+        -- Xóa nhà cửa và cây cối
+        for _, obj in pairs(Workspace:GetChildren()) do
+            -- Xóa các đối tượng có tên liên quan đến nhà cửa
+            if obj:IsA("Model") then
+                local name = obj.Name:lower()
+                if name:find("house") or name:find("building") or name:find("home") then
+                    obj:Destroy()
+                elseif name:find("tree") or name:find("plant") or name:find("bush") then
+                    obj:Destroy()
+                end
+            end
+        end
     end)
 end
 
--- Optimize all objects in game
+-- Optimize Workspace settings (one-time)
+local function optimizeWorkspace()
+    pcall(function()
+        Workspace.Gravity = 0 -- Tắt trọng lực
+        Workspace.FallenPartsDestroyHeight = -500 -- Xóa phần rơi sớm hơn
+    end)
+end
+
+-- Optimize all objects initially
 local function optimizeAll()
     for _, obj in pairs(Workspace:GetDescendants()) do
         optimizeObject(obj)
@@ -68,14 +83,15 @@ local function optimizeLocalPlayer()
     end
 end
 
--- Initial boost
+-- Initial optimization (run once)
 optimizeLighting()
 optimizeWorkspace()
+removeTerrainHousesTrees() -- Xóa địa hình, nhà, cây cối
 optimizeAll()
 optimizeLocalPlayer()
-print("FPS Booster: Running at maximum performance.")
+print("FPS Booster: Optimized with terrain, houses, and trees removed.")
 
--- Boost new objects dynamically
+-- Optimize new objects dynamically (only when added)
 Workspace.DescendantAdded:Connect(optimizeObject)
 Players.LocalPlayer.CharacterAdded:Connect(function(character)
     for _, part in pairs(character:GetDescendants()) do
@@ -83,16 +99,15 @@ Players.LocalPlayer.CharacterAdded:Connect(function(character)
     end
 end)
 
--- Continuous boost with RunService
-RunService.Heartbeat:Connect(function()
-    optimizeAll() -- Liên tục tối ưu mọi thứ
-end)
-
--- Clean up debris instantly
+-- Periodic cleanup (lightweight, every 5 seconds)
+local lastCleanup = tick()
 RunService.Stepped:Connect(function()
-    for _, debris in pairs(Workspace:GetChildren()) do
-        if debris:IsA("Debris") then
-            debris:Destroy()
+    if tick() - lastCleanup >= 5 then -- Chỉ chạy mỗi 5 giây
+        for _, debris in pairs(Workspace:GetChildren()) do
+            if debris:IsA("Debris") then
+                debris:Destroy()
+            end
         end
+        lastCleanup = tick()
     end
 end)
