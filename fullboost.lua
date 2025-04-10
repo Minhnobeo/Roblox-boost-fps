@@ -31,7 +31,7 @@ local function disableTerrain()
     end)
 end
 
--- Xóa hiệu ứng gây lag và texture phụ (an toàn hơn)
+-- Bước 1: Dọn hiệu ứng nặng (an toàn hơn)
 local function removeEffectsAndTextures()
     pcall(function()
         local objectsToRemove = {}
@@ -57,31 +57,24 @@ local function removeEffectsAndTextures()
     end)
 end
 
--- Xóa mọi thứ trừ nhân vật, NPC, và bề mặt nền (an toàn hơn)
+-- Bước 2: Giữ lại nhân vật, NPC, Terrain, Map (an toàn hơn)
 local function cleanEnvironment()
     pcall(function()
         local objectsToRemove = {}
         for _, item in pairs(Workspace:GetChildren()) do
-            -- Kiểm tra xem có phải nhân vật người chơi không
-            local isPlayerChar = false
-            for _, player in pairs(game.Players:GetPlayers()) do
+            local isPlayer = false
+            for _, player in pairs(Players:GetPlayers()) do
                 if player.Character and (item == player.Character or item:IsDescendantOf(player.Character)) then
-                    isPlayerChar = true
+                    isPlayer = true
                     break
                 end
             end
 
-            -- NPC là mô hình có Humanoid nhưng không phải người chơi
-            local isNPC = false
-            if item:IsA("Model") and item:FindFirstChildOfClass("Humanoid") and not isPlayerChar then
-                isNPC = true
-            end
-
-            -- Giữ nền: Terrain, Baseplate, các khối có từ khóa liên quan đến mặt đất
+            local isNPC = item:IsA("Model") and item:FindFirstChildOfClass("Humanoid") and not isPlayer
             local isTerrain = item:IsA("Terrain")
-            local isBase = item.Name:lower():find("base") or item.Name:lower():find("ground") or item.Name:lower():find("map")
+            local isMap = item.Name:lower():match("map") or item.Name:lower():match("base") or item:IsA("Part") or item:IsA("Model")
 
-            if not isPlayerChar and not isNPC and not isTerrain and not isBase then
+            if not isPlayer and not isNPC and not isTerrain and not isMap then
                 table.insert(objectsToRemove, item)
             end
         end
@@ -100,7 +93,7 @@ local function cleanEnvironment()
     end)
 end
 
--- Giảm chất lượng đồ họa cho nhẹ máy
+-- Giảm chất lượng đồ họa (tùy chọn)
 local function optimizeRendering()
     pcall(function()
         settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
@@ -118,31 +111,27 @@ end
 -- Initial optimization (run once)
 optimizeLighting()
 disableTerrain()
-cleanEnvironment()
 removeEffectsAndTextures()
+cleanEnvironment()
 optimizeWorkspace()
 optimizeRendering()
-print("Ultra FPS Booster: Dọn sạch hoàn tất. Nhân vật, NPC và nền được giữ lại.")
+print("Ultra FPS Booster: Dọn hoàn tất: giữ nhân vật, NPC, Terrain, và Map.")
 
 -- Optimize new objects dynamically (only when added)
 Workspace.DescendantAdded:Connect(function(obj)
-    local isPlayerChar = false
-    for _, player in pairs(game.Players:GetPlayers()) do
+    local isPlayer = false
+    for _, player in pairs(Players:GetPlayers()) do
         if player.Character and (obj == player.Character or obj:IsDescendantOf(player.Character)) then
-            isPlayerChar = true
+            isPlayer = true
             break
         end
     end
 
-    local isNPC = false
-    if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") and not isPlayerChar then
-        isNPC = true
-    end
-
+    local isNPC = obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") and not isPlayer
     local isTerrain = obj:IsA("Terrain")
-    local isBase = obj.Name:lower():find("base") or obj.Name:lower():find("ground") or obj.Name:lower():find("map")
+    local isMap = obj.Name:lower():match("map") or obj.Name:lower():match("base") or obj:IsA("Part") or obj:IsA("Model")
 
-    if not isPlayerChar and not isNPC and not isTerrain and not isBase then
+    if not isPlayer and not isNPC and not isTerrain and not isMap then
         task.defer(function()
             pcall(function()
                 if obj and obj.Parent then
