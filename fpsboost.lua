@@ -1,40 +1,68 @@
--- BOOST FPS SCRIPT (universal)
+-- Full Auto FPS Boost Script by Minhnobeo + ChatGPT
 pcall(function()
-    -- Xóa toàn bộ hiệu ứng ánh sáng, hạt, v.v.
-    for _, v in pairs(game:GetDescendants()) do
-        if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") or v:IsA("Fire") then
-            v.Enabled = false
-        elseif v:IsA("Explosion") then
-            v:Destroy()
-        elseif v:IsA("PointLight") or v:IsA("SpotLight") or v:IsA("SurfaceLight") then
-            v.Enabled = false
-        elseif v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("ColorCorrectionEffect") or v:IsA("BloomEffect") or v:IsA("DepthOfFieldEffect") then
-            v.Enabled = false
-        end
-    end
 
-    -- Xóa địa hình (terrain)
+    -- Clear Terrain
     if workspace:FindFirstChildOfClass("Terrain") then
-        workspace.Terrain:Clear()
+        local terrain = workspace:FindFirstChildOfClass("Terrain")
+        terrain:Clear()
+        terrain.WaterWaveSize = 0
+        terrain.WaterWaveSpeed = 0
+        terrain.WaterReflectance = 0
+        terrain.WaterTransparency = 1
     end
 
-    -- Tắt shadow, chỉnh chất lượng thấp
-    settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-    game:GetService("Lighting").GlobalShadows = false
-
-    -- Giảm hiệu ứng nước nếu có
-    game:GetService("Lighting").WaterWaveSize = 0
-    game:GetService("Lighting").WaterWaveSpeed = 0
-    game:GetService("Lighting").WaterReflectance = 0
-    game:GetService("Lighting").WaterTransparency = 1
-
-    -- Tối ưu nhân vật và các chi tiết khác
-    for _, v in pairs(workspace:GetDescendants()) do
-        if v:IsA("BasePart") then
-            v.Material = Enum.Material.Plastic
-            v.Reflectance = 0
+    -- Lighting Settings
+    local lighting = game:GetService("Lighting")
+    lighting.GlobalShadows = false
+    lighting.FogEnd = 1e10
+    lighting.Brightness = 0
+    for _, v in pairs(lighting:GetChildren()) do
+        if v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("BloomEffect") or v:IsA("DepthOfFieldEffect") or v:IsA("ColorCorrectionEffect") then
+            v:Destroy()
         end
     end
 
-    print("[+] FPS BOOST LOADED SUCCESSFULLY")
+    -- Settings
+    settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+
+    -- Remove effects from workspace
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") or v:IsA("Explosion") then
+            v:Destroy()
+        elseif v:IsA("Decal") or v:IsA("Texture") then
+            v:Destroy()
+        elseif v:IsA("Sound") then
+            v.Volume = 0
+        elseif v:IsA("BillboardGui") or v:IsA("SurfaceGui") or v:IsA("TextLabel") or v:IsA("ImageLabel") or v:IsA("TextButton") then
+            v:Destroy()
+        end
+    end
+
+    -- Remove GUI from Player
+    for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+        if player:FindFirstChild("PlayerGui") then
+            for _, gui in pairs(player.PlayerGui:GetChildren()) do
+                gui:Destroy()
+            end
+        end
+    end
+
+    -- Camera Optimization
+    local camera = workspace.CurrentCamera
+    if camera then
+        camera.CameraType = Enum.CameraType.Custom
+        camera.FieldOfView = 70
+    end
+
+    -- Mute all
+    game:GetService("UserSettings"):GetService("UserGameSettings").MasterVolume = 0
+
+    -- Remove click detectors and touches
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("ClickDetector") or obj:IsA("TouchTransmitter") then
+            obj:Destroy()
+        end
+    end
+
+    print("[FPS BOOST] Đã tối ưu toàn bộ - FPS tăng tối đa!")
 end)
