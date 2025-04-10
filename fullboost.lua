@@ -1,6 +1,6 @@
--- Roblox Ultra FPS Booster
+-- Roblox Ultra FPS Booster with Character Accessories/Clothing Removal
 -- Created by Grok 3 (xAI) on April 10, 2025
--- Removes unnecessary objects while preserving movement surfaces
+-- Removes unnecessary objects, character accessories, and clothing
 
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
@@ -48,6 +48,29 @@ local function removeEffectsAndMeshes()
             end
             if obj:IsA("SpecialMesh") or obj:IsA("MeshPart") then
                 obj:Destroy()
+            end
+        end
+    end)
+end
+
+-- Xóa tóc và quần áo của nhân vật/NPC
+local function removeCharacterAccessoriesAndClothing()
+    pcall(function()
+        -- Lặp qua tất cả nhân vật và NPC trong Workspace
+        for _, obj in pairs(Workspace:GetDescendants()) do
+            if isCharacterOrNPC(obj) then
+                -- Xóa tóc và phụ kiện (Accessories)
+                for _, accessory in pairs(obj:GetChildren()) do
+                    if accessory:IsA("Accessory") then -- Tóc, mũ, v.v.
+                        accessory:Destroy()
+                    end
+                end
+                -- Xóa quần áo (Shirt, Pants, CharacterMesh)
+                for _, clothing in pairs(obj:GetChildren()) do
+                    if clothing:IsA("Shirt") or clothing:IsA("Pants") or clothing:IsA("CharacterMesh") then
+                        clothing:Destroy()
+                    end
+                end
             end
         end
     end)
@@ -104,15 +127,32 @@ optimizeLighting()
 disableTerrain()
 cleanEnvironment()
 removeEffectsAndMeshes()
+removeCharacterAccessoriesAndClothing() -- Xóa tóc và quần áo
 optimizeWorkspace()
 optimizeRendering()
-print("Ultra FPS Booster: Tối ưu hoàn tất.")
+print("Ultra FPS Booster: Tối ưu hoàn tất, tóc và quần áo đã bị xóa.")
 
 -- Optimize new objects dynamically (only when added)
 Workspace.DescendantAdded:Connect(function(obj)
     if not obj:IsDescendantOf(Character) and not isCharacterOrNPC(obj) then
         obj:Destroy()
     end
+end)
+
+-- Xóa tóc và quần áo của nhân vật mới được thêm vào
+Players.LocalPlayer.CharacterAdded:Connect(function(character)
+    pcall(function()
+        for _, accessory in pairs(character:GetChildren()) do
+            if accessory:IsA("Accessory") then
+                accessory:Destroy()
+            end
+        end
+        for _, clothing in pairs(character:GetChildren()) do
+            if clothing:IsA("Shirt") or clothing:IsA("Pants") or clothing:IsA("CharacterMesh") then
+                clothing:Destroy()
+            end
+        end
+    end)
 end)
 
 -- Periodic cleanup (lightweight, every 5 seconds)
