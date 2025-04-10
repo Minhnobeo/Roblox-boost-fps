@@ -1,4 +1,4 @@
--- Roblox Ultra FPS Booster (Fixed to Prevent Game Freeze)
+-- Roblox Ultra FPS Booster (Safe and Optimized)
 -- Created by Grok 3 (xAI) on April 10, 2025
 -- Removes unnecessary objects safely while preserving movement surfaces
 
@@ -31,25 +31,14 @@ local function disableTerrain()
     end)
 end
 
--- Hàm kiểm tra có phải NPC hoặc người chơi
-local function isCharacterOrNPC(obj)
-    return obj:FindFirstChild("Humanoid") and obj:FindFirstChild("HumanoidRootPart")
-end
-
--- Xóa các hiệu ứng ánh sáng, particle, mesh, decal không cần thiết (an toàn hơn)
-local function removeEffectsAndMeshes()
+-- Xóa hiệu ứng gây lag và texture phụ (an toàn hơn)
+local function removeEffectsAndTextures()
     pcall(function()
         local objectsToRemove = {}
         for _, obj in pairs(game:GetDescendants()) do
-            -- Bỏ qua nếu đối tượng thuộc nhân vật hoặc NPC
-            if obj:IsDescendantOf(Character) or isCharacterOrNPC(obj) then
-                continue
-            end
             if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") or obj:IsA("Fire") or obj:IsA("Smoke") then
                 table.insert(objectsToRemove, obj)
             elseif obj:IsA("Decal") or obj:IsA("Texture") or obj:IsA("ShirtGraphic") then
-                table.insert(objectsToRemove, obj)
-            elseif obj:IsA("SpecialMesh") or obj:IsA("MeshPart") then
                 table.insert(objectsToRemove, obj)
             end
         end
@@ -72,29 +61,28 @@ end
 local function cleanEnvironment()
     pcall(function()
         local objectsToRemove = {}
-        for _, part in pairs(Workspace:GetChildren()) do
-            if part:IsA("Model") or part:IsA("BasePart") then
-                -- Nếu không phải nhân vật hoặc NPC thì xóa
-                local isPlayer = false
-                for _, plr in pairs(game.Players:GetPlayers()) do
-                    if plr.Character and (part == plr.Character or part:IsDescendantOf(plr.Character)) then
-                        isPlayer = true
-                        break
-                    end
+        for _, item in pairs(Workspace:GetChildren()) do
+            -- Kiểm tra xem có phải nhân vật người chơi không
+            local isPlayerChar = false
+            for _, player in pairs(game.Players:GetPlayers()) do
+                if player.Character and (item == player.Character or item:IsDescendantOf(player.Character)) then
+                    isPlayerChar = true
+                    break
                 end
+            end
 
-                -- NPC kiểm tra bằng tên hoặc chứa Humanoid
-                local isNPC = false
-                if part:FindFirstChildOfClass("Humanoid") and not isPlayer then
-                    isNPC = true
-                end
+            -- NPC là mô hình có Humanoid nhưng không phải người chơi
+            local isNPC = false
+            if item:IsA("Model") and item:FindFirstChildOfClass("Humanoid") and not isPlayerChar then
+                isNPC = true
+            end
 
-                -- Giữ nền: Terrain hoặc Baseplate hoặc vật thể có tên riêng bạn muốn giữ
-                local isGround = part:IsA("Terrain") or part.Name:lower():find("base") or part.Name:lower():find("ground") or part.Name:lower():find("road")
+            -- Giữ nền: Terrain, Baseplate, các khối có từ khóa liên quan đến mặt đất
+            local isTerrain = item:IsA("Terrain")
+            local isBase = item.Name:lower():find("base") or item.Name:lower():find("ground") or item.Name:lower():find("map")
 
-                if not isPlayer and not isNPC and not isGround then
-                    table.insert(objectsToRemove, part)
-                end
+            if not isPlayerChar and not isNPC and not isTerrain and not isBase then
+                table.insert(objectsToRemove, item)
             end
         end
 
@@ -112,7 +100,7 @@ local function cleanEnvironment()
     end)
 end
 
--- Tối ưu thêm: tắt shadows, giảm chất lượng
+-- Giảm chất lượng đồ họa cho nhẹ máy
 local function optimizeRendering()
     pcall(function()
         settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
@@ -131,14 +119,30 @@ end
 optimizeLighting()
 disableTerrain()
 cleanEnvironment()
-removeEffectsAndMeshes()
+removeEffectsAndTextures()
 optimizeWorkspace()
 optimizeRendering()
-print("Ultra FPS Booster: Tối ưu hoàn tất (đã sửa lỗi đứng game).")
+print("Ultra FPS Booster: Dọn sạch hoàn tất. Nhân vật, NPC và nền được giữ lại.")
 
 -- Optimize new objects dynamically (only when added)
 Workspace.DescendantAdded:Connect(function(obj)
-    if not obj:IsDescendantOf(Character) and not isCharacterOrNPC(obj) then
+    local isPlayerChar = false
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player.Character and (obj == player.Character or obj:IsDescendantOf(player.Character)) then
+            isPlayerChar = true
+            break
+        end
+    end
+
+    local isNPC = false
+    if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") and not isPlayerChar then
+        isNPC = true
+    end
+
+    local isTerrain = obj:IsA("Terrain")
+    local isBase = obj.Name:lower():find("base") or obj.Name:lower():find("ground") or obj.Name:lower():find("map")
+
+    if not isPlayerChar and not isNPC and not isTerrain and not isBase then
         task.defer(function()
             pcall(function()
                 if obj and obj.Parent then
