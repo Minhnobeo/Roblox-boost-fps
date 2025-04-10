@@ -1,6 +1,6 @@
 -- Optimized Roblox FPS Booster Script with Terrain, Houses, and Trees Removal
 -- Created by Grok 3 (xAI) on April 10, 2025
--- Designed to reduce lag without causing stuttering
+-- Fixed to allow character movement
 
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
@@ -25,8 +25,10 @@ local function optimizeObject(obj)
         if obj:IsA("BasePart") then
             obj.CastShadow = false -- Tắt bóng
             obj.Material = Enum.Material.SmoothPlastic -- Giảm chất lượng texture
-            obj.Anchored = true -- Cố định để giảm vật lý
-            obj.CanCollide = false -- Tắt va chạm
+            -- Không tắt CanCollide để nhân vật có thể đứng trên bề mặt
+            -- obj.CanCollide = false
+            -- Không cố định tất cả để tránh ảnh hưởng đến cơ chế game
+            -- obj.Anchored = true
         elseif obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") then
             obj.Enabled = false -- Tắt hiệu ứng
         elseif obj:IsA("ParticleEmitter") then
@@ -37,31 +39,42 @@ local function optimizeObject(obj)
     end)
 end
 
--- Remove terrain, houses, and trees
+-- Hàm kiểm tra tên đối tượng có liên quan đến nhà, cây cối, hoặc địa hình
+local function isTargetObject(obj)
+    local name = obj.Name:lower()
+    return name:find("tree") or name:find("house") or name:find("building") or name:find("grass") or name:find("leaf")
+end
+
+-- Xóa terrain, nhà cửa, và cây cối, nhưng giữ lại bề mặt di chuyển
 local function removeTerrainHousesTrees()
     pcall(function()
-        -- Xóa địa hình (Terrain)
-        Terrain:Clear() -- Xóa toàn bộ địa hình (cỏ, đất, nước, v.v.)
-
-        -- Xóa nhà cửa và cây cối
-        for _, obj in pairs(Workspace:GetChildren()) do
-            -- Xóa các đối tượng có tên liên quan đến nhà cửa
-            if obj:IsA("Model") then
+        -- Xóa các đối tượng liên quan đến nhà, cây cối
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if obj:IsA("Model") or obj:IsA("Part") or obj:IsA("MeshPart") then
+                -- Bỏ qua các đối tượng có tên liên quan đến mặt đất hoặc đường
                 local name = obj.Name:lower()
-                if name:find("house") or name:find("building") or name:find("home") then
-                    obj:Destroy()
-                elseif name:find("tree") or name:find("plant") or name:find("bush") then
+                if name:find("ground") or name:find("road") or name:find("floor") then
+                    continue -- Giữ lại mặt đất/đường
+                end
+                if isTargetObject(obj) then
                     obj:Destroy()
                 end
             end
         end
+
+        -- Xóa Terrain nếu có (cảnh báo: có thể ảnh hưởng đến mặt đất)
+        if Workspace:FindFirstChildOfClass("Terrain") then
+            Workspace.Terrain:Clear()
+        end
     end)
+    print("Đã xóa nhà, cây và terrain (giữ lại bề mặt di chuyển).")
 end
 
 -- Optimize Workspace settings (one-time)
 local function optimizeWorkspace()
     pcall(function()
-        Workspace.Gravity = 0 -- Tắt trọng lực
+        -- Không tắt trọng lực để nhân vật di chuyển bình thường
+        -- Workspace.Gravity = 0
         Workspace.FallenPartsDestroyHeight = -500 -- Xóa phần rơi sớm hơn
     end)
 end
@@ -78,7 +91,10 @@ local function optimizeLocalPlayer()
     local player = Players.LocalPlayer
     if player.Character then
         for _, part in pairs(player.Character:GetDescendants()) do
-            optimizeObject(part)
+            -- Không tối ưu hóa nhân vật để tránh ảnh hưởng đến di chuyển
+            if not part:IsA("BasePart") then
+                optimizeObject(part)
+            end
         end
     end
 end
@@ -89,13 +105,15 @@ optimizeWorkspace()
 removeTerrainHousesTrees() -- Xóa địa hình, nhà, cây cối
 optimizeAll()
 optimizeLocalPlayer()
-print("FPS Booster: Optimized with terrain, houses, and trees removed.")
+print("FPS Booster: Optimized with terrain, houses, and trees removed. Character can move.")
 
 -- Optimize new objects dynamically (only when added)
 Workspace.DescendantAdded:Connect(optimizeObject)
 Players.LocalPlayer.CharacterAdded:Connect(function(character)
     for _, part in pairs(character:GetDescendants()) do
-        optimizeObject(part)
+        if not part:IsA("BasePart") then
+            optimizeObject(part)
+        end
     end
 end)
 
